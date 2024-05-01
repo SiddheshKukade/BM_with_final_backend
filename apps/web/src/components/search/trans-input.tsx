@@ -7,10 +7,12 @@ export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
 
 const StyledInput = styled("input", {});
-const autoComplete = {  autoComplete: 'off',
-    autoCorrect: 'off',
-    'data-form-type': 'other',
-    spellCheck: false} ;
+const autoComplete = {
+  autoComplete: "off",
+  autoCorrect: "off",
+  "data-form-type": "other",
+  spellCheck: false,
+};
 const TransInput = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
     return (

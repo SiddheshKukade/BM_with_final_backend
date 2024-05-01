@@ -28,30 +28,38 @@ const TEMPLATES = {
     ],
   },
 };
-
 let elemtnCache: HTMLElement;
 // base atoms
-export const baseCitiesAtom = atom(sortedCities);
-
 export const sourceCitiesAtom = (() => {
-  const { prompts } = TEMPLATES[MODULE];
-  const searchKeys = prompts.filter((it) => !!it.autoComplete);
-  const baseAtom = atom(baseCitiesAtom);
-  return atom((get) => {
-    const keys = get(foundKeysAtom);
-    const currentKey = keys.length == 2 ? "destination" : "source";
-  });
+  const baseAtom = atom(sortedCities);
+  return atom(
+    (get) => get(baseAtom),
+    (get, set) => {
+      const foundKeys = get(foundKeysAtom);
+      const [currentKey, currentVal] =
+        foundKeys.length > 0 ? foundKeys[foundKeys.length - 1] : ["", ""];
+      if (!["source", "destination"].includes(currentKey)) {
+        set(isAutoCompleteVisibleAtom, false);
+      }
+      set(isAutoCompleteVisibleAtom, true);
+      const cities = currentKey === "source" ? sourceCities : destinitionCities;
+      set(
+        baseAtom,
+        cities.filter(
+          (it) => it.city.toLowerCase().indexOf(currentVal.toLowerCase()) === 0,
+        ),
+      );
+    },
+  );
 })();
-
 const maskAtom = atom(TEMPLATES[MODULE].default);
 const foundKeysAtom = atom<string[][]>([]);
 const baseSearchTextAtom = atom("");
 const baseMaskLocationAtom = atom(0);
-export const isInFocusAtom = atomWithToggle(false);
-
+export const isInFocusAtom = atom(false);
+export const isAutoCompleteVisibleAtom = atom(false);
 //derived atoms
 export const hinterAtom = atom((get) => get(foundKeysAtom));
-
 export const maskLocationAtom = atom(
   (get) => get(baseMaskLocationAtom),
   (_get, set, update) => {
@@ -62,20 +70,18 @@ export const maskLocationAtom = atom(
     set(baseMaskLocationAtom, width && width + 7);
   },
 );
-
 export const searchTextAtom = atom(
   (get) => get(baseSearchTextAtom),
   (get, set, update: string) => {
     const text = update.trim();
     set(baseSearchTextAtom, update);
-
     if (!text) {
       set(foundKeysAtom, []);
       set(maskOnInteractionAtom);
       set(maskLocationAtom, update);
+      set(sourceCitiesAtom);
       return;
     }
-
     const { prompts } = TEMPLATES[MODULE];
     const foundKeys = get(foundKeysAtom);
     const entries = text.split(" ");
@@ -87,9 +93,7 @@ export const searchTextAtom = atom(
       entries[
         nextFoundkey === entries.length ? nextFoundkey - 1 : nextFoundkey
       ];
-
     const key = identifyValue({ prompts, foundKeys, entries, entry })!;
-
     if (nextFoundkey !== entries.length) {
       key && foundKeys.push(key);
     } else {
@@ -105,9 +109,9 @@ export const searchTextAtom = atom(
     set(maskOnInteractionAtom);
     set(maskOnInteractionAtom);
     set(maskLocationAtom, update);
+    set(sourceCitiesAtom);
   },
 );
-
 function guessSourceDestination(entry: string, nextKey = "") {
   const lowerEntry = entry.toLowerCase();
   const sourceFund =
@@ -125,7 +129,6 @@ function guessSourceDestination(entry: string, nextKey = "") {
     return ["destination", entry];
   }
 }
-
 const identifyValue = ({ prompts, foundKeys, entries, entry }) => {
   if (isNumeric(entry)) {
     return ["qty", entry];
@@ -136,7 +139,7 @@ const identifyValue = ({ prompts, foundKeys, entries, entry }) => {
   if (["parle"].includes(entry)) {
     return ["product", entry];
   }
- //
+  //
   if (foundKeys.length === 0) {
     return guessSourceDestination(entry);
   } else if (entries.length > foundKeys.length) {
@@ -161,11 +164,9 @@ const identifyValue = ({ prompts, foundKeys, entries, entry }) => {
     } else if (destinationExist && !sourceExist) {
       guessed = guessSourceDestination(entry, "destination");
     }
-
     return guessed ? guessed : [updateKeys[0], entry];
   }
 };
-
 export const maskOnInteractionAtom = atom(
   (get) => get(maskAtom),
   (get, set) => {
@@ -180,9 +181,7 @@ export const maskOnInteractionAtom = atom(
     set(maskAtom, maskedPrompts.join(" "));
   },
 );
-
 //utils
-
 export function atomWithToggle(
   initialValue?: boolean,
 ): WritableAtom<boolean, [boolean?], void> {
@@ -190,10 +189,8 @@ export function atomWithToggle(
     const update = nextValue ?? !get(anAtom);
     set(anAtom, update);
   });
-
   return anAtom as WritableAtom<boolean, [boolean?], void>;
 }
-
 function isNumeric(str: string | number) {
   if (typeof str != "string") return false; // we only process strings!
   return (

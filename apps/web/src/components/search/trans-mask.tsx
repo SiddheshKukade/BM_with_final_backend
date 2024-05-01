@@ -10,15 +10,16 @@ import {
 const StyledSpan = styled("div", {
   position: "relative",
   top: 40,
-  color: "$gray500",
+  color: "#ababab",
   pointerEvents: "none",
   zIndex: -1,
   display: "flex",
   justifyContent: "space-between",
 });
+
 const StyledSpnnerDiv = styled("span", {
   position: "relative",
-  color: "$gray500",
+  color: "#ababab",
   pointerEvents: "none",
   zIndex: -1,
   top: 7,

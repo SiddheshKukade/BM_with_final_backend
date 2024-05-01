@@ -8,7 +8,7 @@ const spinnerVariants = cva("flex-col items-center justify-center", {
     show: {
       true: "flex",
       false: "hidden",
-      color: "gray-100",
+      color: "#ababab",
     },
   },
   defaultVariants: {

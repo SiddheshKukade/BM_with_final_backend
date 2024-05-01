@@ -1,12 +1,14 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAtom } from "jotai";
-import { baseCitiesAtom, isInFocusAtom } from "@/components/search/atoms.ts";
+import {  isAutoCompleteVisibleAtom, isInFocusAtom, sourceCitiesAtom} from "@/components/search/atoms.ts";
 
 //relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50
 export const TransSelect = () => {
-  const [cities] = useAtom(baseCitiesAtom);
   const [isFocused] = useAtom(isInFocusAtom);
-  return ( isFocused &&
+  const [isAutoComplete] = useAtom(isAutoCompleteVisibleAtom);
+  const [cities] = useAtom(sourceCitiesAtom);
+
+  return ( isFocused && isAutoComplete &&
     <ScrollArea className="h-60 w-100 rounded-md border z-1 relative">
       <div className="p-1" style={{ width: "100%" }}>
         {cities.map((tag) => (

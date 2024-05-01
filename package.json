@@ -5,11 +5,10 @@
   "main": "index.js",
   "workspaces": [
     "apps/api",
-    "apps/web",
-    "packages/*"
+    "apps/web"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "concurrently --kill-others \"npm run dev -w trans-api\" \"npm run dev -w trans-web\""
   },
   "private": true,
   "devDependencies": {
@@ -18,5 +17,8 @@
     "postcss": "^8.4.38",
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.3"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
   }
 }
