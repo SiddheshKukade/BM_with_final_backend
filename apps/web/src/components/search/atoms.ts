@@ -1,63 +1,41 @@
-import { atom, WritableAtom } from "jotai";
+import { atom, createStore, WritableAtom } from "jotai";
 import { getCanvasFont, getTextWidth } from "./utils";
-import { cities } from "@/data";
-import { sortBy } from "lodash";
+import { getAutoComplete, getPredictions } from "@/lib/api.ts";
 
-const MODULE = "delivery";
-const sortedCities = sortBy(cities, (it: any) => it.city);
-const sourceCities = sortedCities.filter(
-  (it) => !it.type || it.type === "source",
-);
-const destinitionCities = sortedCities.filter(
-  (it) => !it.type || it.type === "destination",
-);
 
-const TEMPLATES = {
-  delivery: {
-    default: "please enter search ...",
-    prompts: [
-      { key: "source", autoComplete: true, autoCompleteSource: sourceCities },
-      {
-        key: "destination",
-        autoComplete: true,
-        autoCompleteSource: destinitionCities,
-      },
-      { key: "mode" },
-      { key: "product" },
-      { key: "qty" },
-    ],
-  },
-};
 let elemtnCache: HTMLElement;
+type template = { default: string; prompts: { key: string }[] };
+export const APP_STORE = createStore();
+export const templateAtom = atom<template | any>(null);
 // base atoms
 export const sourceCitiesAtom = (() => {
-  const baseAtom = atom(sortedCities);
+  const baseAtom = atom([]);
   return atom(
     (get) => get(baseAtom),
-    (get, set) => {
+    async (get, set) => {
       const foundKeys = get(foundKeysAtom);
-      const [currentKey, currentVal] =
+      const [currentKey] =
         foundKeys.length > 0 ? foundKeys[foundKeys.length - 1] : ["", ""];
       if (!["source", "destination"].includes(currentKey)) {
         set(isAutoCompleteVisibleAtom, false);
       }
+      const autoCompleteData = await getAutoComplete({
+        predictions: foundKeys,
+      });
       set(isAutoCompleteVisibleAtom, true);
-      const cities = currentKey === "source" ? sourceCities : destinitionCities;
-      set(
-        baseAtom,
-        cities.filter(
-          (it) => it.city.toLowerCase().indexOf(currentVal.toLowerCase()) === 0,
-        ),
-      );
+      set(baseAtom, autoCompleteData);
     },
   );
 })();
-const maskAtom = atom(TEMPLATES[MODULE].default);
+
+export const maskAtom = atom("");
+
 const foundKeysAtom = atom<string[][]>([]);
 const baseSearchTextAtom = atom("");
 const baseMaskLocationAtom = atom(0);
 export const isInFocusAtom = atom(false);
 export const isAutoCompleteVisibleAtom = atom(false);
+export const isBusyAtom = atom(false);
 //derived atoms
 export const hinterAtom = atom((get) => get(foundKeysAtom));
 export const maskLocationAtom = atom(
@@ -72,7 +50,7 @@ export const maskLocationAtom = atom(
 );
 export const searchTextAtom = atom(
   (get) => get(baseSearchTextAtom),
-  (get, set, update: string) => {
+  async (get, set, update: string) => {
     const text = update.trim();
     set(baseSearchTextAtom, update);
     if (!text) {
@@ -82,96 +60,27 @@ export const searchTextAtom = atom(
       set(sourceCitiesAtom);
       return;
     }
-    const { prompts } = TEMPLATES[MODULE];
-    const foundKeys = get(foundKeysAtom);
-    const entries = text.split(" ");
-    if (foundKeys.length > entries.length) {
-      foundKeys.length = entries.length;
-    }
-    const nextFoundkey = foundKeys.length;
-    const entry =
-      entries[
-        nextFoundkey === entries.length ? nextFoundkey - 1 : nextFoundkey
-      ];
-    const key = identifyValue({ prompts, foundKeys, entries, entry })!;
-    if (nextFoundkey !== entries.length) {
-      key && foundKeys.push(key);
-    } else {
-      const found = foundKeys.find((it) => it[0] === key[0]);
-      if (found) {
-        found[1] = key[1];
-      } else {
-        foundKeys.pop();
-        foundKeys.push(key);
-      }
-    }
-    set(foundKeysAtom, [...foundKeys]);
-    set(maskOnInteractionAtom);
+    set(isBusyAtom, true);
+    const { prompts } = get(templateAtom);
+    const predictions = get(foundKeysAtom) || [];
+    const result = await getPredictions({
+      update: text,
+      prompts,
+      predictions,
+    });
+    set(isBusyAtom, false);
+    set(foundKeysAtom, [...result.predictions]);
     set(maskOnInteractionAtom);
     set(maskLocationAtom, update);
     set(sourceCitiesAtom);
   },
 );
-function guessSourceDestination(entry: string, nextKey = "") {
-  const lowerEntry = entry.toLowerCase();
-  const sourceFund =
-    ["", "source"].includes(nextKey) &&
-    sourceCities.find((it) => it.city.toLowerCase().indexOf(lowerEntry) === 0);
-  if (sourceFund) {
-    return ["source", entry];
-  }
-  const destinationFund =
-    ["", "destination"].includes(nextKey) &&
-    destinitionCities.find(
-      (it) => it.city.toLowerCase().indexOf(lowerEntry) === 0,
-    );
-  if (destinationFund) {
-    return ["destination", entry];
-  }
-}
-const identifyValue = ({ prompts, foundKeys, entries, entry }) => {
-  if (isNumeric(entry)) {
-    return ["qty", entry];
-  }
-  if (["train", "road"].includes(entry)) {
-    return ["mode", entry];
-  }
-  if (["parle"].includes(entry)) {
-    return ["product", entry];
-  }
-  //
-  if (foundKeys.length === 0) {
-    return guessSourceDestination(entry);
-  } else if (entries.length > foundKeys.length) {
-    const sourceExist = foundKeys.find((it) => it[0] === "source");
-    const destinationExist = foundKeys.find((it) => it[0] === "destination");
-    if (sourceExist && destinationExist) {
-      return ["product", entry];
-    } else if (sourceExist && !destinationExist) {
-      return guessSourceDestination(entry, "destination");
-    }
-    return guessSourceDestination(entry, "source");
-  } else if (entries.length === foundKeys.length) {
-    const updateKeys = foundKeys[foundKeys.length - 1];
-    if (!["source", "destination"].includes(updateKeys[0])) {
-      return [updateKeys[0], entry];
-    }
-    const sourceExist = foundKeys.find((it) => it[0] === "source");
-    const destinationExist = foundKeys.find((it) => it[0] === "destination");
-    let guessed;
-    if (sourceExist && !destinationExist) {
-      guessed = guessSourceDestination(entry, "destination");
-    } else if (destinationExist && !sourceExist) {
-      guessed = guessSourceDestination(entry, "destination");
-    }
-    return guessed ? guessed : [updateKeys[0], entry];
-  }
-};
+
 export const maskOnInteractionAtom = atom(
   (get) => get(maskAtom),
   (get, set) => {
     const foundKeys = get(foundKeysAtom);
-    const { prompts } = TEMPLATES[MODULE];
+    const { prompts } = get(templateAtom);
     const maskedPrompts = prompts.reduce((maskList, { key }) => {
       if (!foundKeys.find(([targetKey]) => targetKey === key)) {
         maskList.push(key);
@@ -190,12 +99,4 @@ export function atomWithToggle(
     set(anAtom, update);
   });
   return anAtom as WritableAtom<boolean, [boolean?], void>;
-}
-function isNumeric(str: string | number) {
-  if (typeof str != "string") return false; // we only process strings!
-  return (
-    // @ts-expect-error use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
-    !isNaN(str) && // use type coercion to parse the _entirety_ of the string (`parseFloat` alone does not do this)...
-    !isNaN(parseFloat(str))
-  ); // ...and ensure strings of whitespace fail
 }

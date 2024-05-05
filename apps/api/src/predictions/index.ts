@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { getSourceCities } from "../utils";
+import { searchText } from "../utils";
 import { PredictionsSchema, SearchInput, SearchInputSchema } from "../common";
 
 const route = new OpenAPIHono();
@@ -13,6 +13,16 @@ route.openapi(
       body: {
         content: {
           "application/json": {
+            schema: SearchInputSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      200: {
+        description: "get predicted values",
+        content: {
+          "application/json": {
             schema: z.object({
               predictions: PredictionsSchema,
             }),
@@ -20,26 +30,13 @@ route.openapi(
         },
       },
     },
-    responses: {
-      200: {
-        description: "search endpoint",
-        content: {
-          "application/json": {
-            schema: z.array(
-              z.object({
-                id: z.string(),
-                city: z.string(),
-              }),
-            ),
-          },
-        },
-      },
-    },
   }),
   async (c) => {
     const body: SearchInput = await c.req.json();
-    const data = getSourceCities(body);
-    return c.json(data);
+    const predictions = searchText(body);
+    return c.json({
+      predictions,
+    });
   },
 );
 

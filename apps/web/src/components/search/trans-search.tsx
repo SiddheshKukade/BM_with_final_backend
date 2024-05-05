@@ -8,8 +8,10 @@ import { TransTable } from "@/components/search/trans-table.tsx";
 export const TransSearch = () => {
   const [search, writSearch] = useAtom(searchTextAtom);
   const [, toggleInFocus] = useAtom(isInFocusAtom);
+
   return (
     <div>
+      {/*{isBusy && <p>working...</p>}*/}
       <TransMask />
       <TransInput
         id="esy-trans-search"
