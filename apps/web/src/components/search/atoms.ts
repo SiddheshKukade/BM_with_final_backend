@@ -1,21 +1,21 @@
 import { atom, createStore, WritableAtom } from "jotai";
 import { getCanvasFont, getTextWidth } from "./utils";
 import { getAutoComplete, getPredictions } from "@/lib/api.ts";
-
+import _ from 'lodash'
 
 let elemtnCache: HTMLElement;
 type template = { default: string; prompts: { key: string }[] };
+
 export const APP_STORE = createStore();
 export const templateAtom = atom<template | any>(null);
 // base atoms
 export const sourceCitiesAtom = (() => {
   const baseAtom = atom([]);
-  return atom(
-    (get) => get(baseAtom),
-    async (get, set) => {
+
+    // Debouncing function for getAutocomplete
+    const debouncedGetAutocomplete = _.debounce(async (get, set) => {
       const foundKeys = get(foundKeysAtom);
-      const [currentKey] =
-        foundKeys.length > 0 ? foundKeys[foundKeys.length - 1] : ["", ""];
+      const [currentKey] = foundKeys.length > 0 ? foundKeys[foundKeys.length - 1] : ["", ""];
       if (!["source", "destination"].includes(currentKey)) {
         set(isAutoCompleteVisibleAtom, false);
       }
@@ -24,15 +24,35 @@ export const sourceCitiesAtom = (() => {
       });
       set(isAutoCompleteVisibleAtom, true);
       set(baseAtom, autoCompleteData);
-    },
+    }, 1000); // 1 second delay
+  
+
+  return atom(
+    (get) => get(baseAtom),
+    async (get, set) => {
+      debouncedGetAutocomplete(get, set); // Call the debounced function
+    }
+    // async (get, set) => {
+    //   const foundKeys = get(foundKeysAtom);
+    //   const [currentKey] =
+    //     foundKeys.length > 0 ? foundKeys[foundKeys.length - 1] : ["", ""];
+    //   if (!["source", "destination"].includes(currentKey)) {
+    //     set(isAutoCompleteVisibleAtom, false);
+    //   }
+    //   const autoCompleteData = await getAutoComplete({
+    //     predictions: foundKeys,
+    //   });
+    //   set(isAutoCompleteVisibleAtom, true);
+    //   set(baseAtom, autoCompleteData);
+    // },
   );
 })();
 
 export const maskAtom = atom("");
 
-const foundKeysAtom = atom<string[][]>([]);
-const baseSearchTextAtom = atom("");
-const baseMaskLocationAtom = atom(0);
+export const foundKeysAtom = atom<string[][]>([]);
+export const baseSearchTextAtom = atom("");
+export const baseMaskLocationAtom = atom(0);
 export const isInFocusAtom = atom(false);
 export const isAutoCompleteVisibleAtom = atom(false);
 export const isBusyAtom = atom(false);
